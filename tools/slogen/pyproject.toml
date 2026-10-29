@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slogen"
+version = "0.1.0"
+description = "Generate multiwindow multi-burn-rate Prometheus rules from Sloth-format SLO specs"
+requires-python = ">=3.12"
+dependencies = ["PyYAML>=6"]
+
+[project.optional-dependencies]
+dev = ["pytest", "promql-parser>=0.11", "ruff"]
+
+[project.scripts]
+slogen = "slogen.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["slogen*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

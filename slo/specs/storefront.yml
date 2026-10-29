@@ -1,0 +1,76 @@
+# User-facing SLOs, measured at the edge (storefront). These are the ones that page.
+# Format: Sloth prometheus/v1 (subset). Generated rules: observability/prometheus/rules/slo/
+version: prometheus/v1
+service: storefront
+labels:
+  team: shop
+  tier: "1"
+slos:
+  - name: checkout-availability
+    objective: 99.9
+    description: Checkout requests that do not fail with a server error (5xx).
+    sli:
+      events:
+        error_query: sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[{{.window}}]))
+        total_query: sum(rate(http_requests_total{service="storefront", route="/checkout"}[{{.window}}]))
+    alerting:
+      name: CheckoutAvailability
+      labels:
+        category: availability
+      annotations:
+        runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/checkout-availability.md
+        dashboard: /d/slo-overview
+      page_alert:
+        labels:
+          routing_key: shop-oncall
+      ticket_alert:
+        labels:
+          routing_key: shop-backlog
+
+  - name: checkout-latency
+    objective: 99
+    description: Checkout requests served in under 500ms.
+    sli:
+      events:
+        # "Bad" events = all requests minus the ones in the <=0.5s bucket.
+        error_query: >-
+          (
+            sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[{{.window}}]))
+            -
+            sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[{{.window}}]))
+          )
+        total_query: sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[{{.window}}]))
+    alerting:
+      name: CheckoutLatency
+      labels:
+        category: latency
+      annotations:
+        runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/checkout-latency.md
+        dashboard: /d/slo-overview
+      page_alert:
+        labels:
+          routing_key: shop-oncall
+      ticket_alert:
+        labels:
+          routing_key: shop-backlog
+
+  - name: catalog-availability
+    objective: 99.9
+    description: Product listing and detail requests that do not fail with a server error (5xx).
+    sli:
+      events:
+        error_query: sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[{{.window}}]))
+        total_query: sum(rate(http_requests_total{service="storefront", route=~"/products.*"}[{{.window}}]))
+    alerting:
+      name: CatalogAvailability
+      labels:
+        category: availability
+      annotations:
+        runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/catalog-availability.md
+        dashboard: /d/slo-overview
+      page_alert:
+        labels:
+          routing_key: shop-oncall
+      ticket_alert:
+        labels:
+          routing_key: shop-backlog

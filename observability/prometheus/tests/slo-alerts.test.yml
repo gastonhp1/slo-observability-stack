@@ -1,0 +1,200 @@
+# promtool unit tests for the generated SLO rules.
+#   promtool test rules observability/prometheus/tests/*.test.yml
+rule_files:
+  - ../rules/slo/storefront.yml
+  - ../rules/slo/payments.yml
+
+evaluation_interval: 1m
+
+tests:
+  # --- Fast burn: half of all checkouts fail. Page AND ticket must fire. ------
+  - name: checkout fast burn pages
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="storefront", route="/checkout", method="POST", code="201"}'
+        values: "0+60x180"
+      - series: 'http_requests_total{service="storefront", route="/checkout", method="POST", code="502"}'
+        values: "0+60x180"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: CheckoutAvailability
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              category: availability
+              routing_key: shop-oncall
+              team: shop
+              tier: "1"
+              slo_id: storefront-checkout-availability
+              slo_service: storefront
+              slo_name: checkout-availability
+            exp_annotations:
+              summary: "storefront/checkout-availability: error budget burning too fast (page)"
+              description: >-
+                SLO storefront-checkout-availability (objective 99.9%) is burning its 30d error budget faster than
+                allowed for a page (5m/1h @ 14.4x, 30m/6h @ 6x). Error ratio over the short window: 50%.
+              runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/checkout-availability.md
+              dashboard: /d/slo-overview
+          - exp_labels:
+              severity: ticket
+              category: availability
+              routing_key: shop-backlog
+              team: shop
+              tier: "1"
+              slo_id: storefront-checkout-availability
+              slo_service: storefront
+              slo_name: checkout-availability
+            exp_annotations:
+              summary: "storefront/checkout-availability: error budget burning too fast (ticket)"
+              description: >-
+                SLO storefront-checkout-availability (objective 99.9%) is burning its 30d error budget faster than
+                allowed for a ticket (2h/1d @ 3x, 6h/3d @ 1x). Error ratio over the short window: 50%.
+              runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/checkout-availability.md
+              dashboard: /d/slo-overview
+    promql_expr_test:
+      - expr: slo:objective:ratio{slo_id="storefront-checkout-availability"}
+        eval_time: 15m
+        exp_samples:
+          - labels: 'slo:objective:ratio{team="shop", tier="1", slo_id="storefront-checkout-availability", slo_service="storefront", slo_name="checkout-availability"}'
+            value: 0.999
+      - expr: slo:current_burn_rate:ratio{slo_id="storefront-checkout-availability"}
+        eval_time: 15m
+        exp_samples:
+          # 50% errors against a 0.1% budget: burning 500x faster than sustainable.
+          - labels: 'slo:current_burn_rate:ratio{team="shop", tier="1", slo_id="storefront-checkout-availability", slo_service="storefront", slo_name="checkout-availability", slo_window="5m"}'
+            value: 500
+      - expr: slo:period_error_budget_remaining:ratio{slo_id="storefront-checkout-availability"}
+        eval_time: 15m
+        exp_samples:
+          # Negative: the whole 30d budget (and 499 more) is gone at this rate.
+          - labels: 'slo:period_error_budget_remaining:ratio{team="shop", tier="1", slo_id="storefront-checkout-availability", slo_service="storefront", slo_name="checkout-availability", slo_window="30d"}'
+            value: -499
+
+  # --- Healthy: 0.03% errors is well inside a 0.1% budget. Nothing fires. ----
+  - name: checkout within budget stays quiet
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="storefront", route="/checkout", method="POST", code="201"}'
+        values: "0+1000x300"
+      - series: 'http_requests_total{service="storefront", route="/checkout", method="POST", code="502"}'
+        values: "0+0.3x300"
+    alert_rule_test:
+      - eval_time: 4h
+        alertname: CheckoutAvailability
+        exp_alerts: []
+
+  # --- Slow burn: 0.4% errors = 4x budget. Ticket only, no page. -------------
+  - name: checkout slow burn opens a ticket but does not page
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="storefront", route="/checkout", method="POST", code="201"}'
+        values: "0+996x300"
+      - series: 'http_requests_total{service="storefront", route="/checkout", method="POST", code="502"}'
+        values: "0+4x300"
+    alert_rule_test:
+      - eval_time: 4h
+        alertname: CheckoutAvailability
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+              category: availability
+              routing_key: shop-backlog
+              team: shop
+              tier: "1"
+              slo_id: storefront-checkout-availability
+              slo_service: storefront
+              slo_name: checkout-availability
+            exp_annotations:
+              summary: "storefront/checkout-availability: error budget burning too fast (ticket)"
+              description: >-
+                SLO storefront-checkout-availability (objective 99.9%) is burning its 30d error budget faster than
+                allowed for a ticket (2h/1d @ 3x, 6h/3d @ 1x). Error ratio over the short window: 0.4%.
+              runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/checkout-availability.md
+              dashboard: /d/slo-overview
+
+  # --- 4xx are the client's fault and must not burn availability budget. ----
+  - name: client errors do not burn budget
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="storefront", route="/checkout", method="POST", code="201"}'
+        values: "0+10x180"
+      - series: 'http_requests_total{service="storefront", route="/checkout", method="POST", code="402"}'
+        values: "0+50x180"
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: CheckoutAvailability
+        exp_alerts: []
+
+  # --- Latency: 30% of checkouts slower than 500ms against a 99% objective. --
+  - name: slow checkouts page on the latency SLO
+    interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_count{service="storefront", route="/checkout", method="POST"}'
+        values: "0+100x120"
+      - series: 'http_request_duration_seconds_bucket{service="storefront", route="/checkout", method="POST", le="0.5"}'
+        values: "0+70x120"
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CheckoutLatency
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              category: latency
+              routing_key: shop-oncall
+              team: shop
+              tier: "1"
+              slo_id: storefront-checkout-latency
+              slo_service: storefront
+              slo_name: checkout-latency
+            exp_annotations:
+              summary: "storefront/checkout-latency: error budget burning too fast (page)"
+              description: >-
+                SLO storefront-checkout-latency (objective 99%) is burning its 30d error budget faster than
+                allowed for a page (5m/1h @ 14.4x, 30m/6h @ 6x). Error ratio over the short window: 30%.
+              runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/checkout-latency.md
+              dashboard: /d/slo-overview
+          - exp_labels:
+              severity: ticket
+              category: latency
+              routing_key: shop-backlog
+              team: shop
+              tier: "1"
+              slo_id: storefront-checkout-latency
+              slo_service: storefront
+              slo_name: checkout-latency
+            exp_annotations:
+              summary: "storefront/checkout-latency: error budget burning too fast (ticket)"
+              description: >-
+                SLO storefront-checkout-latency (objective 99%) is burning its 30d error budget faster than
+                allowed for a ticket (2h/1d @ 3x, 6h/3d @ 1x). Error ratio over the short window: 30%.
+              runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/checkout-latency.md
+              dashboard: /d/slo-overview
+
+  # --- Dependency SLO: payments never pages, only tickets. -------------------
+  - name: payments burn only opens a ticket
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="payments", route="/payments", method="POST", code="201"}'
+        values: "0+60x180"
+      - series: 'http_requests_total{service="payments", route="/payments", method="POST", code="503"}'
+        values: "0+60x180"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: PaymentsCaptureAvailability
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+              category: availability
+              routing_key: payments-backlog
+              team: payments
+              tier: "2"
+              slo_id: payments-capture-availability
+              slo_service: payments
+              slo_name: capture-availability
+            exp_annotations:
+              summary: "payments/capture-availability: error budget burning too fast (ticket)"
+              description: >-
+                SLO payments-capture-availability (objective 99.95%) is burning its 30d error budget faster than
+                allowed for a ticket (2h/1d @ 3x, 6h/3d @ 1x). Error ratio over the short window: 50%.
+              runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/payments-capture-availability.md
+              dashboard: /d/slo-overview

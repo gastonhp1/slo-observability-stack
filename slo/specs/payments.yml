@@ -1,0 +1,28 @@
+# Dependency SLO. Payments failures already page through the checkout SLO
+# (that is where users feel them), so this one only opens tickets: it tells the
+# payments owners their budget is going, without a second page for one incident.
+version: prometheus/v1
+service: payments
+labels:
+  team: payments
+  tier: "2"
+slos:
+  - name: capture-availability
+    objective: 99.95
+    description: Payment capture requests that do not fail with a server error (5xx).
+    sli:
+      events:
+        error_query: sum(rate(http_requests_total{service="payments", route="/payments", code=~"5.."}[{{.window}}]))
+        total_query: sum(rate(http_requests_total{service="payments", route="/payments"}[{{.window}}]))
+    alerting:
+      name: PaymentsCaptureAvailability
+      labels:
+        category: availability
+      annotations:
+        runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/payments-capture-availability.md
+        dashboard: /d/slo-overview
+      page_alert:
+        disable: true
+      ticket_alert:
+        labels:
+          routing_key: payments-backlog

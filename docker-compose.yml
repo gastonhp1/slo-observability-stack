@@ -1,0 +1,146 @@
+# Local stack: 3 instrumented services + loadgen, and the LGTM-style backend.
+#   make up       -> everything, Grafana on http://localhost:3000
+#   make e2e      -> what CI runs: inject a fault and assert the page fires
+name: slo-stack
+
+x-shop: &shop
+  build: ./services
+  image: slo-stack/shop:dev
+  restart: unless-stopped
+  environment: &shop-env
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    SHOP_ENVIRONMENT: demo
+    ORDERS_URL: http://orders:8080
+    PAYMENTS_URL: http://payments:8080
+    ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+  depends_on:
+    otel-collector:
+      condition: service_started
+
+services:
+  # --- workload ------------------------------------------------------------
+  storefront:
+    <<: *shop
+    environment:
+      <<: *shop-env
+      SHOP_SERVICE: storefront
+    ports: ["8080:8080"]
+
+  orders:
+    <<: *shop
+    environment:
+      <<: *shop-env
+      SHOP_SERVICE: orders
+    ports: ["8081:8080"]
+
+  payments:
+    <<: *shop
+    environment:
+      <<: *shop-env
+      SHOP_SERVICE: payments
+    ports: ["8082:8080"]
+
+  loadgen:
+    <<: *shop
+    command: ["python", "-m", "shop.loadgen"]
+    environment:
+      LOADGEN_TARGET: http://storefront:8080
+      LOADGEN_RPS: ${LOADGEN_RPS:-10}
+    healthcheck:
+      disable: true
+    depends_on:
+      storefront:
+        condition: service_healthy
+
+  alert-sink:
+    <<: *shop
+    command: ["uvicorn", "shop.alertsink:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]
+    environment: {}
+    ports: ["8085:8080"]
+    depends_on: {}
+
+  # --- telemetry pipeline --------------------------------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.164.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./observability/otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+    ports: ["4317:4317", "4318:4318"]
+    depends_on: [tempo, loki]
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:3.1.1
+    command: ["-target=all", "-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports: ["3200:3200"]
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.7.9
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ./observability/loki/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+    ports: ["3100:3100"]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --enable-feature=exemplar-storage
+      - --web.enable-remote-write-receiver  # Tempo span metrics / service graph
+      - --web.enable-lifecycle              # POST /-/reload after editing rules
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    ports: ["9090:9090"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.2
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports: ["9093:9093"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9093/-/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/slo-overview.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    depends_on: [prometheus, loki, tempo, alertmanager]
+    restart: unless-stopped
+
+volumes:
+  tempo-data:
+  loki-data:
+  prometheus-data:

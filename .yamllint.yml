@@ -1,0 +1,17 @@
+extends: default
+ignore: |
+  .git/
+rules:
+  # Generated PromQL and URLs are clearer unwrapped.
+  line-length: disable
+  document-start: disable
+  truthy:
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  brackets:
+    max-spaces-inside: 1
+  # PyYAML (generated rules) does not indent sequences; hand-written files do.
+  indentation:
+    spaces: consistent
+    indent-sequences: whatever

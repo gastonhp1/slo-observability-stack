@@ -1,0 +1,10 @@
+[project]
+name = "shop"
+version = "0.1.0"
+description = "Demo services instrumented with OpenTelemetry and Prometheus for the SLO stack"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["ignore::DeprecationWarning"]

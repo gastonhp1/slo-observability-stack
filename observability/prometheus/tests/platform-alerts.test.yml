@@ -1,0 +1,54 @@
+rule_files:
+  - ../rules/platform.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: a dead service pages even though it reports no errors
+    interval: 1m
+    input_series:
+      - series: 'up{job="shop", instance="payments:8080"}'
+        values: "1 1 0 0 0 0 0"
+      - series: 'up{job="shop", instance="orders:8080"}'
+        values: "1 1 1 1 1 1 1"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ShopTargetDown
+        exp_alerts: []  # still pending (for: 2m)
+      - eval_time: 5m
+        alertname: ShopTargetDown
+        exp_alerts:
+          - exp_labels:
+              job: shop
+              instance: payments:8080
+              severity: page
+              category: availability
+              routing_key: shop-oncall
+            exp_annotations:
+              summary: payments:8080 is not being scraped
+              description: >-
+                Prometheus cannot scrape payments:8080 for 2 minutes. A service that is fully
+                down produces no error metrics, so the SLO alerts may stay silent: this alert covers that gap.
+              runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/shop-target-down.md
+
+  - name: missing SLI metrics open a ticket
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="storefront", route="/products", method="GET", code="200"}'
+        values: "0+10x30"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: SLIMetricsMissing
+        exp_alerts:
+          - exp_labels:
+              service: storefront
+              route: /checkout
+              severity: ticket
+              category: observability
+              routing_key: shop-backlog
+            exp_annotations:
+              summary: Checkout SLI has no data
+              description: >-
+                No checkout request metrics for 10 minutes. Either there is no traffic or the instrumentation
+                changed (route or metric renamed), which silently disables the checkout SLOs.
+              runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/sli-metrics-missing.md

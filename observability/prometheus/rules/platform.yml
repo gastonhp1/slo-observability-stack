@@ -1,0 +1,73 @@
+# Hand-written rules: symptoms the SLOs cannot see (no data is not "no errors")
+# and the health of the observability pipeline itself.
+groups:
+  - name: shop-red-recordings
+    rules:
+      - record: service_route:http_requests:rate5m
+        expr: sum by (service, route, code) (rate(http_requests_total[5m]))
+      - record: service_route:http_request_duration_seconds:p99_5m
+        expr: histogram_quantile(0.99, sum by (service, route, le) (rate(http_request_duration_seconds_bucket[5m])))
+
+  - name: shop-availability
+    rules:
+      - alert: ShopTargetDown
+        expr: up{job="shop"} == 0
+        for: 2m
+        labels:
+          severity: page
+          category: availability
+          routing_key: shop-oncall
+        annotations:
+          summary: "{{ $labels.instance }} is not being scraped"
+          description: >-
+            Prometheus cannot scrape {{ $labels.instance }} for 2 minutes. A service that is fully
+            down produces no error metrics, so the SLO alerts may stay silent: this alert covers that gap.
+          runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/shop-target-down.md
+
+      - alert: SLIMetricsMissing
+        expr: absent(http_requests_total{service="storefront", route="/checkout"})
+        for: 10m
+        labels:
+          severity: ticket
+          category: observability
+          routing_key: shop-backlog
+        annotations:
+          summary: Checkout SLI has no data
+          description: >-
+            No checkout request metrics for 10 minutes. Either there is no traffic or the instrumentation
+            changed (route or metric renamed), which silently disables the checkout SLOs.
+          runbook_url: https://github.com/gastonhp1/slo-observability-stack/blob/main/docs/runbooks/sli-metrics-missing.md
+
+  - name: observability-pipeline
+    rules:
+      - alert: ObservabilityTargetDown
+        expr: up{job!="shop"} == 0
+        for: 5m
+        labels:
+          severity: ticket
+          category: observability
+          routing_key: platform-backlog
+        annotations:
+          summary: "{{ $labels.job }} ({{ $labels.instance }}) is down"
+          description: A component of the observability stack has not been scrapeable for 5 minutes.
+
+      - alert: PrometheusRuleEvaluationFailures
+        expr: increase(prometheus_rule_evaluation_failures_total[5m]) > 0
+        labels:
+          severity: ticket
+          category: observability
+          routing_key: platform-backlog
+        annotations:
+          summary: "Rule group {{ $labels.rule_group }} is failing to evaluate"
+          description: Failing recording rules mean stale SLIs and alerts that cannot fire.
+
+      - alert: AlertmanagerNotificationsFailing
+        expr: sum by (integration) (rate(alertmanager_notifications_failed_total[5m])) > 0
+        for: 5m
+        labels:
+          severity: ticket
+          category: observability
+          routing_key: platform-backlog
+        annotations:
+          summary: "Alertmanager cannot deliver notifications via {{ $labels.integration }}"
+          description: Alerts are firing but nobody is being notified.

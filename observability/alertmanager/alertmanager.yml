@@ -1,0 +1,44 @@
+# Routing policy (see docs/slo-policy.md):
+#   severity=page   -> pager   : a human is interrupted now
+#   severity=ticket -> tickets : work for business hours
+# The receivers are webhooks to alert-sink, a stand-in for PagerDuty / Jira.
+route:
+  receiver: tickets
+  group_by: [alertname, slo_id, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    - receiver: pager
+      matchers:
+        - severity="page"
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 1h
+    - receiver: tickets
+      matchers:
+        - severity="ticket"
+
+inhibit_rules:
+  # One incident, one notification: while an SLO pages, its ticket is redundant.
+  - source_matchers:
+      - severity="page"
+    target_matchers:
+      - severity="ticket"
+    equal: [slo_id]
+  # A dead target explains every SLO alert on it; the SLO page adds nothing.
+  - source_matchers:
+      - alertname="ShopTargetDown"
+    target_matchers:
+      - category="availability"
+      - alertname!="ShopTargetDown"
+
+receivers:
+  - name: pager
+    webhook_configs:
+      - url: http://alert-sink:8080/alerts/pager
+        send_resolved: true
+  - name: tickets
+    webhook_configs:
+      - url: http://alert-sink:8080/alerts/tickets
+        send_resolved: true

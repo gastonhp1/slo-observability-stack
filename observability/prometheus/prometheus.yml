@@ -1,0 +1,47 @@
+global:
+  # Short intervals so a demo shows burn-rate alerts within minutes.
+  # In production 30s/1m is the usual trade-off.
+  scrape_interval: 10s
+  evaluation_interval: 15s
+  external_labels:
+    environment: demo
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+  - /etc/prometheus/rules/slo/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # The demo services. Each one sets its own `service` label on the metrics,
+  # so `instance` is the only target label needed.
+  - job_name: shop
+    static_configs:
+      - targets: ["storefront:8080", "orders:8080", "payments:8080"]
+
+  - job_name: alert-sink
+    static_configs:
+      - targets: ["alert-sink:8080"]
+
+  # The observability stack watches itself too.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8888"]
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+  - job_name: tempo
+    static_configs:
+      - targets: ["tempo:3200"]
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]
