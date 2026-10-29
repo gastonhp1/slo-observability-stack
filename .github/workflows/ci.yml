@@ -112,6 +112,15 @@ jobs:
           curl -fsS http://localhost:9093/api/v2/alerts > diag/am-alerts.json || true
           curl -fsS http://localhost:8085/alerts > diag/alert-sink.json || true
           tail -n 40 diag/*.log
+          # Short summary as annotations, visible on the run page without opening logs.
+          annotate() { printf '::%s title=%s::%s\n' "$1" "$2" "$(tr '\n' ' ' <<<"$3" | sed 's/%/%25/g' | cut -c1-1800)"; }
+          annotate error "targets not up" "$(jq -c '[.data.activeTargets[] | select(.health != "up") | {job: .labels.job, err: .lastError}]' diag/prom-targets.json 2>&1)"
+          annotate error "unhealthy rules" "$(jq -c '[.data.groups[].rules[] | select(.health == "err") | {name, err: .lastError}]' diag/prom-rules.json 2>&1)"
+          annotate warning "alerts in prometheus" "$(jq -c '[.data.alerts[] | {a: .labels.alertname, s: .labels.severity, st: .state}]' diag/prom-alerts.json 2>&1)"
+          annotate warning "compose ps" "$(cat diag/ps.txt)"
+          for s in otel-collector tempo loki storefront payments grafana; do
+            annotate warning "$s log tail" "$(grep -iE 'error|fail|panic|refused' "diag/$s.log" | tail -n 6)"
+          done
       - name: Upload diagnostics
         if: failure()
         uses: actions/upload-artifact@v7

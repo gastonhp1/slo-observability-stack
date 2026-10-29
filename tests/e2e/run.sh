@@ -26,7 +26,13 @@ FAULT_ERROR_RATE=${FAULT_ERROR_RATE:-0.6}
 
 START=$(date +%s)
 log()  { printf '[e2e +%4ss] %s\n' "$(( $(date +%s) - START ))" "$*"; }
-fail() { log "FAIL: $*"; exit 1; }
+# In GitHub Actions, results also become annotations on the run summary.
+notice() { log "$*"; [[ -n ${GITHUB_ACTIONS:-} ]] && echo "::notice title=e2e::$*"; return 0; }
+fail() {
+  log "FAIL: $*"
+  [[ -n ${GITHUB_ACTIONS:-} ]] && echo "::error title=e2e failed::$*"
+  exit 1
+}
 
 # wait_for <description> <timeout seconds> <command...>: retries every 5s.
 wait_for() {
@@ -83,7 +89,7 @@ fault_at=$(date +%s)
 # --- 4. the page fires and is delivered -------------------------------------
 wait_for "CheckoutAvailability page firing in Prometheus" 300 \
   prom_has_result 'ALERTS{alertname="CheckoutAvailability", severity="page", alertstate="firing"}'
-log "time from fault to firing page: $(( $(date +%s) - fault_at ))s"
+notice "fault injected -> CheckoutAvailability page firing in $(( $(date +%s) - fault_at ))s"
 
 wait_for "page active in Alertmanager" 120 bash -c \
   "curl -fsS --get '$AM/api/v2/alerts' --data-urlencode 'filter=alertname=\"CheckoutAvailability\"' --data-urlencode 'filter=severity=\"page\"' --data-urlencode 'active=true' | jq -e 'length > 0'"
@@ -92,7 +98,7 @@ wait_for "page delivered to the pager receiver" 120 bash -c \
   "curl -fsS '$ALERT_SINK/alerts?receiver=pager&alertname=CheckoutAvailability' | jq -e 'map(select(.status == \"firing\")) | length > 0'"
 
 notified=$(curl -fsS "$ALERT_SINK/alerts?receiver=pager&alertname=CheckoutAvailability" | jq -c '.[0] | {severity, slo, runbook: .annotations.runbook_url}')
-log "pager notification: $notified"
+notice "pager notification: $notified"
 jq -e '.runbook | test("docs/runbooks/checkout-availability.md$")' <<<"$notified" >/dev/null \
   || fail "page has no runbook_url"
 
@@ -133,4 +139,4 @@ log "fault cleared"
 wait_for "storefront serves checkouts again" 60 bash -c \
   "curl -fsS -X POST '$STOREFRONT/checkout' -H 'content-type: application/json' -d '{\"product_id\":\"p-100\",\"quantity\":1}' | jq -e '.status == \"confirmed\"'"
 
-log "PASSED"
+notice "PASSED in $(( $(date +%s) - START ))s"
