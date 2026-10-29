@@ -122,6 +122,14 @@ def test_page_and_ticket_alerts_use_workbook_burn_rates():
     assert page["annotations"]["runbook_url"] == "https://example.test/rb"
 
 
+def test_missing_error_series_counts_as_zero_errors():
+    """Regression: with no 5xx series the SLI must be 0, not "no data"."""
+    out = rules.generate(spec.parse(make()).slos)
+    expr = rules_by_name(out)["slo:sli_error:ratio_rate5m"][0]["expr"]
+    assert "or on() vector(0)" in expr
+    promql_parser.parse(expr)
+
+
 def test_disabled_page_alert_is_not_generated():
     data = make()
     data["slos"][0]["alerting"]["page_alert"] = {"disable": True}

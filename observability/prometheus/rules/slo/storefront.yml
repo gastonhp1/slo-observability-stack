@@ -6,7 +6,8 @@ groups:
   - record: slo:sli_error:ratio_rate5m
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[5m]))
+        (sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[5m])))
+        or on() vector(0)
       )
       /
       (
@@ -22,7 +23,8 @@ groups:
   - record: slo:sli_error:ratio_rate30m
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[30m]))
+        (sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[30m])))
+        or on() vector(0)
       )
       /
       (
@@ -38,7 +40,8 @@ groups:
   - record: slo:sli_error:ratio_rate1h
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[1h]))
+        (sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[1h])))
+        or on() vector(0)
       )
       /
       (
@@ -54,7 +57,8 @@ groups:
   - record: slo:sli_error:ratio_rate2h
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[2h]))
+        (sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[2h])))
+        or on() vector(0)
       )
       /
       (
@@ -70,7 +74,8 @@ groups:
   - record: slo:sli_error:ratio_rate6h
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[6h]))
+        (sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[6h])))
+        or on() vector(0)
       )
       /
       (
@@ -86,7 +91,8 @@ groups:
   - record: slo:sli_error:ratio_rate1d
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[1d]))
+        (sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[1d])))
+        or on() vector(0)
       )
       /
       (
@@ -102,7 +108,8 @@ groups:
   - record: slo:sli_error:ratio_rate3d
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[3d]))
+        (sum(rate(http_requests_total{service="storefront", route="/checkout", code=~"5.."}[3d])))
+        or on() vector(0)
       )
       /
       (
@@ -218,7 +225,8 @@ groups:
   - record: slo:sli_error:ratio_rate5m
     expr: |-
       (
-        ( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[5m])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[5m])) )
+        (( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[5m])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[5m])) ))
+        or on() vector(0)
       )
       /
       (
@@ -234,7 +242,8 @@ groups:
   - record: slo:sli_error:ratio_rate30m
     expr: |-
       (
-        ( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[30m])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[30m])) )
+        (( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[30m])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[30m])) ))
+        or on() vector(0)
       )
       /
       (
@@ -250,7 +259,8 @@ groups:
   - record: slo:sli_error:ratio_rate1h
     expr: |-
       (
-        ( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[1h])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[1h])) )
+        (( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[1h])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[1h])) ))
+        or on() vector(0)
       )
       /
       (
@@ -266,7 +276,8 @@ groups:
   - record: slo:sli_error:ratio_rate2h
     expr: |-
       (
-        ( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[2h])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[2h])) )
+        (( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[2h])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[2h])) ))
+        or on() vector(0)
       )
       /
       (
@@ -282,7 +293,8 @@ groups:
   - record: slo:sli_error:ratio_rate6h
     expr: |-
       (
-        ( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[6h])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[6h])) )
+        (( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[6h])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[6h])) ))
+        or on() vector(0)
       )
       /
       (
@@ -298,7 +310,8 @@ groups:
   - record: slo:sli_error:ratio_rate1d
     expr: |-
       (
-        ( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[1d])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[1d])) )
+        (( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[1d])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[1d])) ))
+        or on() vector(0)
       )
       /
       (
@@ -314,7 +327,8 @@ groups:
   - record: slo:sli_error:ratio_rate3d
     expr: |-
       (
-        ( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[3d])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[3d])) )
+        (( sum(rate(http_request_duration_seconds_count{service="storefront", route="/checkout"}[3d])) - sum(rate(http_request_duration_seconds_bucket{service="storefront", route="/checkout", le="0.5"}[3d])) ))
+        or on() vector(0)
       )
       /
       (
@@ -430,7 +444,8 @@ groups:
   - record: slo:sli_error:ratio_rate5m
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[5m]))
+        (sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[5m])))
+        or on() vector(0)
       )
       /
       (
@@ -446,7 +461,8 @@ groups:
   - record: slo:sli_error:ratio_rate30m
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[30m]))
+        (sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[30m])))
+        or on() vector(0)
       )
       /
       (
@@ -462,7 +478,8 @@ groups:
   - record: slo:sli_error:ratio_rate1h
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[1h]))
+        (sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[1h])))
+        or on() vector(0)
       )
       /
       (
@@ -478,7 +495,8 @@ groups:
   - record: slo:sli_error:ratio_rate2h
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[2h]))
+        (sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[2h])))
+        or on() vector(0)
       )
       /
       (
@@ -494,7 +512,8 @@ groups:
   - record: slo:sli_error:ratio_rate6h
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[6h]))
+        (sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[6h])))
+        or on() vector(0)
       )
       /
       (
@@ -510,7 +529,8 @@ groups:
   - record: slo:sli_error:ratio_rate1d
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[1d]))
+        (sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[1d])))
+        or on() vector(0)
       )
       /
       (
@@ -526,7 +546,8 @@ groups:
   - record: slo:sli_error:ratio_rate3d
     expr: |-
       (
-        sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[3d]))
+        (sum(rate(http_requests_total{service="storefront", route=~"/products.*", code=~"5.."}[3d])))
+        or on() vector(0)
       )
       /
       (

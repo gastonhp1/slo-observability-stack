@@ -68,7 +68,11 @@ def sli_expr(slo: SLOSpec, window: str) -> str:
     assert slo.error_query and slo.total_query
     error = slo.error_query.replace(WINDOW_TOKEN, window)
     total = slo.total_query.replace(WINDOW_TOKEN, window)
-    return f"(\n  {error}\n)\n/\n(\n  {total}\n)"
+    # A healthy service has no 5xx series at all, so the error query returns an
+    # empty vector, not 0, and `empty / total` is empty too: the SLI would have
+    # no data exactly when everything is fine. `or on() vector(0)` turns "no
+    # errors" into 0 while still returning nothing when there is no traffic.
+    return f"(\n  ({error})\n  or on() vector(0)\n)\n/\n(\n  {total}\n)"
 
 
 def sli_group(slo: SLOSpec) -> dict:

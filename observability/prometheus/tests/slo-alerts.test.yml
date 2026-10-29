@@ -83,6 +83,25 @@ tests:
         alertname: CheckoutAvailability
         exp_alerts: []
 
+  # --- Regression: a healthy service has no 5xx series at all. The SLI must be
+  # 0 (data), not empty, or dashboards show "no data" and the burn rate is blank.
+  - name: no error series means an error ratio of zero
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{service="storefront", route="/checkout", method="POST", code="201"}'
+        values: "0+60x30"
+    promql_expr_test:
+      - expr: slo:sli_error:ratio_rate5m{slo_id="storefront-checkout-availability"}
+        eval_time: 10m
+        exp_samples:
+          - labels: 'slo:sli_error:ratio_rate5m{team="shop", tier="1", slo_id="storefront-checkout-availability", slo_service="storefront", slo_name="checkout-availability", slo_window="5m"}'
+            value: 0
+      - expr: slo:current_burn_rate:ratio{slo_id="storefront-checkout-availability"}
+        eval_time: 10m
+        exp_samples:
+          - labels: 'slo:current_burn_rate:ratio{team="shop", tier="1", slo_id="storefront-checkout-availability", slo_service="storefront", slo_name="checkout-availability", slo_window="5m"}'
+            value: 0
+
   # --- Slow burn: 0.4% errors = 4x budget. Ticket only, no page. -------------
   - name: checkout slow burn opens a ticket but does not page
     interval: 1m

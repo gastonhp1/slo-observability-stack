@@ -119,7 +119,7 @@ jobs:
           annotate warning "alerts in prometheus" "$(jq -c '[.data.alerts[] | {a: .labels.alertname, s: .labels.severity, st: .state}]' diag/prom-alerts.json 2>&1)"
           annotate warning "compose ps" "$(cat diag/ps.txt)"
           for s in otel-collector tempo loki storefront payments grafana; do
-            annotate warning "$s log tail" "$(grep -iE 'error|fail|panic|refused' "diag/$s.log" | tail -n 6)"
+            annotate warning "$s log tail" "$(grep -iE 'level=(error|fatal)|"level": "error"|panic|refused' "diag/$s.log" | tail -n 6)"
           done
       - name: Upload diagnostics
         if: failure()
