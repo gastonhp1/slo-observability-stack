@@ -97,7 +97,7 @@ wait_for "page active in Alertmanager" 120 bash -c \
 wait_for "page delivered to the pager receiver" 120 bash -c \
   "curl -fsS '$ALERT_SINK/alerts?receiver=pager&alertname=CheckoutAvailability' | jq -e 'map(select(.status == \"firing\")) | length > 0'"
 
-notified=$(curl -fsS "$ALERT_SINK/alerts?receiver=pager&alertname=CheckoutAvailability" | jq -c '.[0] | {severity, slo, runbook: .annotations.runbook_url}')
+notified=$(curl -fsS "$ALERT_SINK/alerts?receiver=pager&alertname=CheckoutAvailability" | jq -c '.[0] | {severity, slo_id, runbook: .annotations.runbook_url}')
 notice "pager notification: $notified"
 jq -e '.runbook | test("docs/runbooks/checkout-availability.md$")' <<<"$notified" >/dev/null \
   || fail "page has no runbook_url"

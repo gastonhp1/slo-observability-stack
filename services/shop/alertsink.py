@@ -46,7 +46,7 @@ async def receive(receiver: str, request: Request) -> dict:
             "status": alert.get("status"),
             "alertname": labels.get("alertname"),
             "severity": labels.get("severity"),
-            "slo": labels.get("slo"),
+            "slo_id": labels.get("slo_id"),
             "labels": labels,
             "annotations": alert.get("annotations", {}),
             "startsAt": alert.get("startsAt"),

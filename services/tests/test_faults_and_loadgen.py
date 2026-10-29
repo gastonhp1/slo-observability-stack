@@ -49,7 +49,7 @@ def test_alertsink_records_alertmanager_webhook():
         "alerts": [
             {
                 "status": "firing",
-                "labels": {"alertname": "CheckoutAvailabilityBudgetBurn", "severity": "page", "slo": "x"},
+                "labels": {"alertname": "CheckoutAvailabilityBudgetBurn", "severity": "page", "slo_id": "x"},
                 "annotations": {"summary": "burning"},
                 "startsAt": "2026-10-29T00:00:00Z",
             }

@@ -14,7 +14,7 @@ scripts/chaos.sh errors payments 0.6
 ```
 
 **Hypothesis**
-* `CheckoutAvailability` **page** fires within ~2 minutes (5m and 1h windows both
+* `CheckoutAvailability` **page** fires within about a minute (31s in CI) (5m and 1h windows both
   above 14.4x the 0.1% budget).
 * `PaymentsCaptureAvailability` does **not** page (dependency SLO, ticket only).
 * The `CheckoutAvailability` ticket, if its condition is met, is **inhibited**

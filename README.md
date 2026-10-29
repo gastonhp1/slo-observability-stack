@@ -13,7 +13,7 @@ and a test that injects a real failure and checks the right person gets paged.
 ```
 make up                         # stack + traffic, Grafana on http://localhost:3000
 scripts/chaos.sh errors payments 0.6
-# ~2 minutes later: CheckoutAvailability pages, the ticket is inhibited,
+# ~30 seconds later: CheckoutAvailability pages, the ticket is inhibited,
 # the exemplar on the latency graph opens the failing trace, the trace opens its logs.
 ```
 

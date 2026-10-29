@@ -11,7 +11,7 @@
 | **Date** | 2026-10-29 |
 | **Severity** | SEV-2 (checkout degraded, no data loss) |
 | **Duration of impact** | 10 minutes (fault on → fault cleared) |
-| **Detection** | `CheckoutAvailability` page, ~2 minutes after the fault started |
+| **Detection** | `CheckoutAvailability` page, 31 seconds after the fault started (measured by the CI e2e run) |
 | **SLO impact** | `storefront-checkout-availability`: ~60% of checkouts failed for 10 minutes |
 | **Status** | Closed. Action items below. |
 
@@ -40,9 +40,9 @@ releases, but a second incident like this one in the same month would.
 | T−10m | Baseline: checkout error ratio 0%, no alerts firing. |
 | T+0 | 60% error rate injected into payments `/admin/faults`. |
 | T+15s | First 502s at storefront; *Service RED* 5xx ratio for `/checkout` jumps. |
-| T+~1–2m | 5m ratio passes 1.44% (14.4 × 0.1%); the 1h ratio, computed over all data so far, also above. **`CheckoutAvailability` page fires.** |
-| T+~2m | Alertmanager delivers to the `pager` receiver with the runbook link (`group_wait` 10s). |
-| T+~2m | `PaymentsCaptureAvailability` evaluates as a **ticket only**; no second page. |
+| T+31s | 5m ratio passes 1.44% (14.4 × 0.1%); the 1h ratio, computed over all data so far, also above. **`CheckoutAvailability` page fires.** |
+| T+~45s | Alertmanager delivers to the `pager` receiver with the runbook link (`group_wait` 10s). |
+| T+~1m | `PaymentsCaptureAvailability` evaluates as a **ticket only**; no second page. |
 | T+3m | On-call opens the runbook. *Service RED*: 5xx at storefront (502), orders (502), payments (503). The deepest 5xx is payments. |
 | T+4m | p99 exemplar → trace: payments span red, with event `fault.error`. Loki logs for the trace show `payment failed` in orders. |
 | T+5m | `scripts/chaos.sh status payments` confirms an active fault. |
